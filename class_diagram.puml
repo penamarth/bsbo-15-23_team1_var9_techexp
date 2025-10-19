@@ -1,0 +1,120 @@
+@startuml
+' Файл: class_diagram.puml
+' Диаграмма классов для "Информационной системы технической экспертизы"
+
+' --- Пакеты ---
+package "Пользователи" <<Folder>> {
+  abstract class User {
+    + id: Long
+    + username: String
+    + passwordHash: String
+    + email: String
+    + firstName: String
+    + lastName: String
+    --
+    + login()
+    + logout()
+    + updateProfile()
+  }
+
+  class Applicant extends User {
+    --
+    + submitApplication(application: Application)
+    + viewApplicationStatus(applicationId: Long): Status
+    + withdrawApplication(applicationId: Long)
+  }
+
+  class Expert extends User {
+    + specialization: String
+    --
+    + viewAssignedApplications(): List<Application>
+    + evaluateApplication(evaluation: Evaluation)
+  }
+
+  class FundHolder extends User {
+    --
+    + assignExpertToApplication(expert: Expert, application: Application)
+    + viewEvaluationResults(applicationId: Long): List<Evaluation>
+    + makeDecision(decision: GrantDecision)
+    + manageUser(user: User)
+  }
+}
+
+package "Заявки" <<Folder>> {
+  class Application {
+    + id: Long
+    + title: String
+    + description: String
+    + submissionDate: Date
+    + status: ApplicationStatus
+    - applicantId: Long
+    --
+    + getStatus(): ApplicationStatus
+    + setStatus(status: ApplicationStatus)
+  }
+
+  enum ApplicationStatus {
+    SUBMITTED
+    UNDER_REVIEW
+    EVALUATED
+    APPROVED
+    REJECTED
+    WITHDRAWN
+  }
+
+  class Evaluation {
+    + id: Long
+    + score: Integer
+    + comments: String
+    + evaluationDate: Date
+    - expertId: Long
+    - applicationId: Long
+  }
+  
+  class GrantDecision {
+    + id: Long
+    + decision: DecisionType
+    + justification: String
+    + decisionDate: Date
+    - fundHolderId: Long
+    - applicationId: Long
+  }
+
+  enum DecisionType {
+    APPROVED
+    REJECTED
+  }
+}
+
+' --- Отношения ---
+
+' Обобщение (Generalization)
+User <|-- Applicant
+User <|-- Expert
+User <|-- FundHolder
+
+' Агрегация/Композиция (Aggregation/Composition)
+' Заявка создается соискателем. Если соискатель удален, его заявки остаются. (Агрегация)
+Applicant o-- "1..*" Application : "подает"
+
+' Экспертиза является частью заявки. При удалении заявки удаляются и все ее оценки. (Композиция)
+Application "1" *-- "0..*" Evaluation : "содержит"
+
+' Решение по гранту является частью заявки. (Композиция)
+Application "1" *-- "1" GrantDecision : "имеет"
+
+' Эксперт проводит оценку. (Агрегация)
+Expert "1" --o "0..*" Evaluation : "проводит"
+
+' Держатель фонда принимает решение. (Агрегация)
+FundHolder "1" --o "0..*" GrantDecision : "принимает"
+
+' Зависимости (Dependency)
+' Соискатель зависит от статуса, чтобы просмотреть его
+Applicant ..> ApplicationStatus
+
+' Держатель фонда зависит от класса Expert и Application при назначении
+FundHolder ..> Expert
+FundHolder ..> Application
+
+@enduml

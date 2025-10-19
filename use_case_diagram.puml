@@ -1,0 +1,59 @@
+@startuml
+' Файл: use_case_diagram.puml
+' Диаграмма вариантов использования для "Информационной системы технической экспертизы"
+
+left to right direction
+
+actor "Соискатель гранта" as Applicant
+actor "Независимый эксперт" as Expert
+actor "Держатель фонда" as FundHolder
+
+rectangle "Информационная система технической экспертизы" {
+  usecase "Подать заявку" as SubmitApplication
+  usecase "Просмотреть статус заявки" as ViewStatus
+  usecase "Отозвать заявку" as WithdrawApplication
+  
+  usecase "Оценить заявку" as EvaluateApplication
+  usecase "Просмотреть назначенные заявки" as ViewAssignedApplications
+
+  usecase "Принять решение по заявке" as MakeDecision
+  usecase "Назначить экспертов" as AssignExperts
+  usecase "Просмотреть результаты экспертизы" as ViewEvaluations
+  usecase "Управлять пользователями" as ManageUsers
+  
+  usecase "Авторизоваться в системе" as Login
+  usecase "Управлять профилем" as ManageProfile
+}
+
+' Связи для Соискателя
+Applicant -- (Login)
+Applicant -- (ManageProfile)
+Applicant -- (SubmitApplication)
+Applicant -- (ViewStatus)
+Applicant -- (WithdrawApplication)
+
+' Связи для Эксперта
+Expert -- (Login)
+Expert -- (ManageProfile)
+Expert -- (ViewAssignedApplications)
+Expert -- (EvaluateApplication)
+
+' Связи для Держателя фонда
+FundHolder -- (Login)
+FundHolder -- (ManageUsers)
+FundHolder -- (AssignExperts)
+FundHolder -- (ViewEvaluations)
+FundHolder -- (MakeDecision)
+
+' Отношения включения (include)
+SubmitApplication .> (Login) : <<include>>
+ViewStatus .> (Login) : <<include>>
+WithdrawApplication .> (Login) : <<include>>
+EvaluateApplication .> (Login) : <<include>>
+ViewAssignedApplications .> (Login) : <<include>>
+MakeDecision .> (Login) : <<include>>
+AssignExperts .> (Login) : <<include>>
+ViewEvaluations .> (Login) : <<include>>
+ManageUsers .> (Login) : <<include>>
+
+@enduml

@@ -1,0 +1,57 @@
+@startuml
+' Файл: sequence_diagram_evaluate_application.puml
+' Диаграмма последовательности для прецедента "Оценить заявку"
+
+title "Последовательность: Оценка заявки экспертом"
+
+actor "Эксперт" as Expert
+participant "Система" as System
+participant "База данных" as DB
+
+activate Expert
+Expert -> System: Запрашивает список назначенных заявок
+activate System
+
+System -> DB: Получить заявки для эксперта (expertId)
+activate DB
+DB --> System: Список заявок
+deactivate DB
+
+System --> Expert: Отображает список заявок
+deactivate System
+
+Expert -> System: Выбирает заявку для оценки и запрашивает детали
+activate System
+
+System -> DB: Получить детали заявки (applicationId)
+activate DB
+DB --> System: Детали заявки
+deactivate DB
+
+System --> Expert: Отображает детали заявки
+deactivate System
+
+Expert -> System: Отправляет оценку (балл, комментарии)
+activate System
+
+System -> System: Валидация данных оценки
+alt Успешная валидация
+    System -> DB: Сохранить оценку (applicationId, expertId, score, comments)
+    activate DB
+    DB --> System: Подтверждение сохранения
+    deactivate DB
+    
+    System -> DB: Обновить статус заявки на 'EVALUATED'
+    activate DB
+    DB --> System: Подтверждение обновления
+    deactivate DB
+    
+    System --> Expert: Уведомление об успешном сохранении оценки
+else Неуспешная валидация
+    System --> Expert: Сообщение об ошибке
+end
+
+deactivate System
+deactivate Expert
+
+@enduml
