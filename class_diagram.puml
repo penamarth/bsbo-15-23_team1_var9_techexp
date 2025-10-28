@@ -1,11 +1,12 @@
 @startuml
 ' Файл: class_diagram.puml
 ' Диаграмма классов для "Информационной системы технической экспертизы"
+' Архитектура: Domain-Driven Design с ограниченными контекстами (Bounded Contexts) и агрегатами
 
-' --- Пакеты ---
-package "Пользователи" <<Folder>> {
+' ===== BOUNDED CONTEXT 1: Identity & Access =====
+package "Контекст управления доступом" <<BoundedContext>> {
   abstract class User {
-    + id: Long
+    + id: UserId
     + username: String
     + passwordHash: String
     + email: String
@@ -19,38 +20,51 @@ package "Пользователи" <<Folder>> {
 
   class Applicant extends User {
     --
-    + submitApplication(application: Application)
-    + viewApplicationStatus(applicationId: Long): Status
-    + withdrawApplication(applicationId: Long)
+    + submitApplication(applicationData: ApplicationData): ApplicationId
+    + viewApplicationStatus(applicationId: ApplicationId): ApplicationStatus
+    + withdrawApplication(applicationId: ApplicationId)
   }
 
   class Expert extends User {
     + specialization: String
     --
-    + viewAssignedApplications(): List<Application>
-    + evaluateApplication(evaluation: Evaluation)
+    + viewAssignedApplications(): List<ApplicationId>
+    + submitEvaluation(evaluationData: EvaluationData): EvaluationId
   }
 
   class FundHolder extends User {
+    + organizationName: String
     --
-    + assignExpertToApplication(expert: Expert, application: Application)
-    + viewEvaluationResults(applicationId: Long): List<Evaluation>
-    + makeDecision(decision: GrantDecision)
+    + assignExpertToApplication(expertId: UserId, applicationId: ApplicationId)
+    + makeDecision(decisionData: DecisionData): DecisionId
     + manageUser(user: User)
   }
+
+  class UserId {
+    - value: Long
+  }
+
+  User "1" --> "1" UserId
 }
 
-package "Заявки" <<Folder>> {
-  class Application {
-    + id: Long
-    + title: String
-    + description: String
-    + submissionDate: Date
-    + status: ApplicationStatus
-    - applicantId: Long
+' ===== BOUNDED CONTEXT 2: Application Management =====
+package "Контекст управления заявками (Агрегат)" <<BoundedContext>> {
+  ' Root Aggregate Entity
+  class ApplicationAggregate {
+    - applicationId: ApplicationId
+    - applicantId: UserId
+    - title: String
+    - description: String
+    - submissionDate: Date
     --
     + getStatus(): ApplicationStatus
-    + setStatus(status: ApplicationStatus)
+    + changeStatus(newStatus: ApplicationStatus)
+    + withdraw()
+    + canBeEvaluated(): Boolean
+  }
+
+  class ApplicationId {
+    - value: Long
   }
 
   enum ApplicationStatus {
@@ -62,59 +76,133 @@ package "Заявки" <<Folder>> {
     WITHDRAWN
   }
 
-  class Evaluation {
-    + id: Long
-    + score: Integer
-    + comments: String
-    + evaluationDate: Date
-    - expertId: Long
-    - applicationId: Long
+  class ApplicationData <<ValueObject>> {
+    - title: String
+    - description: String
+    - submissionDate: Date
   }
-  
-  class GrantDecision {
-    + id: Long
-    + decision: DecisionType
-    + justification: String
-    + decisionDate: Date
-    - fundHolderId: Long
-    - applicationId: Long
+
+  ' Aggregate composition
+  ApplicationAggregate "1" --> "1" ApplicationId
+  ApplicationAggregate "1" --> "1" ApplicationStatus
+  ApplicationAggregate "1" --> "*" ApplicationData
+}
+
+' ===== BOUNDED CONTEXT 3: Evaluation =====
+package "Контекст оценки заявок (Агрегат)" <<BoundedContext>> {
+  ' Root Aggregate Entity
+  class EvaluationAggregate {
+    - evaluationId: EvaluationId
+    - applicationId: ApplicationId
+    - expertId: UserId
+    - score: Integer
+    - comments: String
+    - evaluationDate: Date
+    --
+    + getScore(): Integer
+    + getComments(): String
+    + isValid(): Boolean
+  }
+
+  class EvaluationId {
+    - value: Long
+  }
+
+  class EvaluationData <<ValueObject>> {
+    - score: Integer
+    - comments: String
+    - evaluationDate: Date
+    --
+    + validate(): Boolean
+  }
+
+  class ExpertReference <<ValueObject>> {
+    - expertId: UserId
+    - specialization: String
+  }
+
+  ' Aggregate composition
+  EvaluationAggregate "1" --> "1" EvaluationId
+  EvaluationAggregate "1" --> "1" EvaluationData
+  EvaluationAggregate "1" --> "1" ExpertReference
+}
+
+' ===== BOUNDED CONTEXT 4: Grant Decision =====
+package "Контекст принятия решений по грантам (Агрегат)" <<BoundedContext>> {
+  ' Root Aggregate Entity
+  class GrantDecisionAggregate {
+    - decisionId: DecisionId
+    - applicationId: ApplicationId
+    - fundHolderId: UserId
+    - decisionType: DecisionType
+    - justification: String
+    - decisionDate: Date
+    --
+    + getDecision(): DecisionType
+    + getJustification(): String
+    + approve()
+    + reject()
+  }
+
+  class DecisionId {
+    - value: Long
   }
 
   enum DecisionType {
     APPROVED
     REJECTED
   }
+
+  class DecisionData <<ValueObject>> {
+    - decisionType: DecisionType
+    - justification: String
+    - decisionDate: Date
+  }
+
+  ' Aggregate composition
+  GrantDecisionAggregate "1" --> "1" DecisionId
+  GrantDecisionAggregate "1" --> "1" DecisionType
+  GrantDecisionAggregate "1" --> "1" DecisionData
 }
 
-' --- Отношения ---
+' ===== INTER-CONTEXT REFERENCES (через ID, не через объекты) =====
+note right of ApplicationAggregate
+  Contains: ApplicationId (PK)
+  References: applicantId (UserId)
+  ---
+  No direct object references
+  to other aggregates
+end note
 
-' Обобщение (Generalization)
-User <|-- Applicant
-User <|-- Expert
-User <|-- FundHolder
+note right of EvaluationAggregate
+  Contains: EvaluationId (PK)
+  References: 
+    - applicationId
+    - expertId (UserId)
+  ---
+  Only value objects inside
+end note
 
-' Агрегация/Композиция (Aggregation/Composition)
-' Заявка создается соискателем. Если соискатель удален, его заявки остаются. (Агрегация)
-Applicant o-- "1..*" Application : "подает"
+note right of GrantDecisionAggregate
+  Contains: DecisionId (PK)
+  References:
+    - applicationId
+    - fundHolderId (UserId)
+  ---
+  Aggregate root coordinates
+  between contexts
+end note
 
-' Экспертиза является частью заявки. При удалении заявки удаляются и все ее оценки. (Композиция)
-Application "1" *-- "0..*" Evaluation : "содержит"
+' Связи между контекстами (только через ID, обозначены пунктиром)
+ApplicationAggregate "1" ..> ApplicationId : "references"
+EvaluationAggregate "1" ..> ApplicationId : "applicationId"
+EvaluationAggregate "1" ..> UserId : "expertId"
+GrantDecisionAggregate "1" ..> ApplicationId : "applicationId"
+GrantDecisionAggregate "1" ..> UserId : "fundHolderId"
 
-' Решение по гранту является частью заявки. (Композиция)
-Application "1" *-- "1" GrantDecision : "имеет"
-
-' Эксперт проводит оценку. (Агрегация)
-Expert "1" --o "0..*" Evaluation : "проводит"
-
-' Держатель фонда принимает решение. (Агрегация)
-FundHolder "1" --o "0..*" GrantDecision : "принимает"
-
-' Зависимости (Dependency)
-' Соискатель зависит от статуса, чтобы просмотреть его
-Applicant ..> ApplicationStatus
-
-' Держатель фонда зависит от класса Expert и Application при назначении
-FundHolder ..> Expert
-FundHolder ..> Application
+' Публикация событий (показаны как зависимости)
+ApplicationAggregate ..> "ApplicationSubmitted\nApplicationWithdrawn\nStatusChanged" : "publishes"
+EvaluationAggregate ..> "EvaluationCompleted" : "publishes"
+GrantDecisionAggregate ..> "DecisionMade" : "publishes"
 
 @enduml
