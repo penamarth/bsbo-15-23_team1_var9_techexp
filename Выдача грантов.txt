@@ -1,0 +1,39 @@
+@startuml
+title "Последовательность: Выдача грантов (Принятие решения)"
+
+actor "Грантодатель" as FundHolder
+participant "SystemFacade" as Facade
+participant "DecisionService" as DecService
+participant "ApplicationService" as AppService
+participant "Application (StateMachine)" as ApplicationState
+participant "База данных" as DB
+
+FundHolder -> Facade: makeDecision(applicationId, status, notes)
+activate Facade
+
+Facade -> DecService: saveDecision(application, fundHolderId, status, notes)
+activate DecService
+
+' --- Проверка состояния ---
+DecService -> ApplicationState: getCurrentState()
+ApplicationState --> DecService: EVALUATED
+
+DecService -> AppService: getApplication(applicationId)
+AppService --> DecService: application
+
+' --- Принятие решения ---
+alt status == "APPROVED"
+    DecService -> ApplicationState: transitionTo(APPROVED)
+else status == "REJECTED"
+    DecService -> ApplicationState: transitionTo(REJECTED)
+end
+
+DecService -> DB: INSERT Decision
+DB --> DecService: confirmation
+
+DecService --> Facade: confirmation
+Facade --> FundHolder: уведомление
+
+deactivate DecService
+deactivate Facade
+@enduml

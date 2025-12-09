@@ -1,0 +1,23 @@
+@startuml
+title "Последовательность: Добавление пользователей"
+
+actor "Администратор" as Admin
+participant "SystemFacade" as Facade
+participant "UserService" as UserService
+participant "База данных" as DB
+
+Admin -> Facade: registerUser(name, email, role, extraInfo)
+activate Facade
+
+Facade -> UserService: createUser(name, email, role, extraInfo)
+activate UserService
+
+UserService -> DB: INSERT User
+DB --> UserService: userId
+
+UserService --> Facade: userCreated
+Facade --> Admin: confirmation
+
+deactivate UserService
+deactivate Facade
+@enduml
