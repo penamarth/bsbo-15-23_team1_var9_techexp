@@ -1,0 +1,156 @@
+@startuml
+' === Диаграмма классов с интеграцией паттерна State ===
+title "Диаграмма классов ИС технической экспертизы (+ State Pattern)"
+
+' ===== Пакет: Пользователи =====
+package "Оформление пользователя" {
+  class User {
+    - userId: int
+    - name: string
+    - email: string
+    - role: string
+    --
+    + login()
+    + logout()
+    + updateProfile(profileData)
+  }
+
+  class Applicant {
+    - applicantSpecificField: string
+  }
+
+  class Expert {
+    - specialization: string
+  }
+
+  class FundHolder {
+    - fundHolderNote: string
+  }
+
+  Applicant o-- User
+  Expert o-- User
+  FundHolder o-- User
+}
+
+' ===== Пакет: Оформление заявки (State Pattern) =====
+package "Оформление заявки" {
+
+  interface ApplicationState {
+    + submit(app: Application)
+    + review(app: Application)
+    + evaluate(app: Application)
+    + withdraw(app: Application)
+    + decide(app: Application)
+  }
+
+  class SubmittedState
+  class UnderReviewState
+  class EvaluatedState
+  class WithdrawnState
+  class ApprovedState
+  class RejectedState
+
+  ApplicationState <|-- SubmittedState
+  ApplicationState <|-- UnderReviewState
+  ApplicationState <|-- EvaluatedState
+  ApplicationState <|-- WithdrawnState
+  ApplicationState <|-- ApprovedState
+  ApplicationState <|-- RejectedState
+
+  class Application {
+    - applicationId: int
+    - title: string
+    - description: string
+    - applicantId: int
+    - state: ApplicationState
+    --
+    + getState()
+    + setState(state: ApplicationState)
+    + submit()
+    + withdraw()
+    + evaluate()
+    + startReview()
+    + makeDecision()
+  }
+
+  Application *-- ApplicationState
+
+  class ApplicationService {
+    + createApplication(...)
+    + getApplicationsByApplicant(applicantId)
+  }
+}
+
+' ===== Пакет: Оценка заявки =====
+package "Оценка заявки" {
+  class Evaluation {
+    - evaluationId: int
+    - applicationId: int
+    - expertId: int
+    - score: int
+    - comments: string
+    --
+    + isValid()
+  }
+
+  class EvaluationService {
+    + getAssignedApplications(expertId)
+    + saveEvaluation(...)
+  }
+}
+
+' ===== Пакет: Принятие гранта =====
+package "Оформление гранта" {
+
+  enum DecisionStatus {
+    APPROVED
+    REJECTED
+  }
+
+  class Decision {
+    - decisionId: int
+    - applicationId: int
+    - fundHolderId: int
+    - status: DecisionStatus
+    - notes: string
+    --
+    + approve()
+    + reject()
+  }
+
+  class DecisionService {
+    + assignExperts(applicationId, expertIds[])
+    + saveDecision(...)
+    + getEvaluations(applicationId)
+  }
+}
+
+' ===== Пакет: Система / Фасад =====
+package "Система" {
+  class SystemFacade {
+    + submitApplication(applicantId, title, description)
+    + viewStatus(applicantId)
+    + withdrawApplication(applicantId, applicationId)
+    + viewAssignedApplications(expertId)
+    + evaluateApplication(expertId, applicationId, score, comments)
+    + assignExperts(fundHolderId, applicationId, expertIds[])
+    + makeDecision(fundHolderId, applicationId, status, notes)
+    + viewEvaluations(fundHolderId, applicationId)
+    + login(email, password)
+    + manageProfile(userId, profileData)
+  }
+}
+
+' ===== Связи =====
+SystemFacade --> ApplicationService
+SystemFacade --> EvaluationService
+SystemFacade --> DecisionService
+
+ApplicationService --> Application
+EvaluationService --> Evaluation
+DecisionService --> Decision
+
+Application "1" *-- "0..*" Evaluation
+Application "1" *-- "0..*" Decision
+
+@enduml
