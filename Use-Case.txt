@@ -1,0 +1,64 @@
+@startuml
+left to right direction
+title "Use Case: ИС технической экспертизы с состояниями заявки"
+
+actor "Соискатель" as Applicant
+actor "Эксперт" as Expert
+actor "Держатель фонда" as FundHolder
+
+rectangle "Информационная система" {
+
+  package "Оформление заявки" {
+    usecase "Подать заявку" as SubmitApplication
+    usecase "Просмотреть статус заявки" as ViewStatus
+    usecase "Отозвать заявку" as WithdrawApplication
+  }
+
+  package "Оценка заявки" {
+    usecase "Просмотреть назначенные заявки" as ViewAssignedApplications
+    usecase "Оценить заявку" as EvaluateApplication
+  }
+
+  package "Принятие решения" {
+    usecase "Назначить экспертов" as AssignExperts
+    usecase "Принять решение по заявке" as MakeDecision
+    usecase "Просмотреть результаты экспертизы" as ViewEvaluations
+    usecase "Управлять пользователями" as ManageUsers
+  }
+
+  usecase "Авторизация" as Login
+  usecase "Управление профилем" as ManageProfile
+}
+
+' --- Минимальный набор связей ---
+Applicant -- SubmitApplication
+Applicant -- ViewStatus
+Applicant -- WithdrawApplication
+
+Expert -- ViewAssignedApplications
+Expert -- EvaluateApplication
+
+FundHolder -- AssignExperts
+FundHolder -- MakeDecision
+FundHolder -- ViewEvaluations
+FundHolder -- ManageUsers
+
+' --- Общие функции ---
+Applicant -- Login
+Expert -- Login
+FundHolder -- Login
+
+' --- Ограничения по состояниям ---
+note right of WithdrawApplication
+  Доступно только если заявка в состоянии SUBMITTED или UNDER_REVIEW
+end note
+
+note right of EvaluateApplication
+  Доступно только если заявка в состоянии UNDER_REVIEW
+end note
+
+note right of ViewEvaluations
+  Доступно только если заявка в состоянии EVALUATED
+end note
+
+@enduml

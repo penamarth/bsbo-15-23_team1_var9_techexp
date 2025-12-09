@@ -1,0 +1,35 @@
+@startuml
+title "Последовательность: Оценка заявки с State"
+
+actor "Эксперт" as Expert
+participant "SystemFacade" as Facade
+participant "EvaluationService" as EvalService
+participant "ApplicationService" as AppService
+participant "Application (StateMachine)" as ApplicationState
+participant "База данных" as DB
+
+Expert -> Facade: evaluateApplication(applicationId, score, comments)
+activate Facade
+
+Facade -> EvalService: saveEvaluation(...)
+activate EvalService
+
+' --- Проверка состояния заявки перед оценкой ---
+EvalService -> ApplicationState: getCurrentState()
+ApplicationState --> EvalService: UNDER_REVIEW
+
+EvalService -> AppService: canBeEvaluated(applicationId)
+AppService --> EvalService: true
+
+EvalService -> DB: INSERT Evaluation
+DB --> EvalService: confirmation
+
+' --- Переход состояния заявки после оценки ---
+EvalService -> ApplicationState: transitionTo(EVALUATED)
+
+EvalService --> Facade: confirmation
+Facade --> Expert: уведомление
+
+deactivate EvalService
+deactivate Facade
+@enduml

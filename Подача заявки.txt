@@ -1,0 +1,27 @@
+@startuml
+title "Последовательность: Подача заявки с State"
+
+actor "Соискатель" as Applicant
+participant "SystemFacade" as Facade
+participant "ApplicationService" as AppService
+participant "Application (StateMachine)" as ApplicationState
+participant "База данных" as DB
+
+Applicant -> Facade: submitApplication(title, description)
+activate Facade
+
+Facade -> AppService: createApplication(...)
+activate AppService
+
+AppService -> DB: INSERT Application
+DB --> AppService: applicationId
+
+' --- Применение паттерна State ---
+AppService -> ApplicationState: transitionTo(SUBMITTED)
+
+AppService --> Facade: confirmation
+Facade --> Applicant: уведомление
+
+deactivate AppService
+deactivate Facade
+@enduml
