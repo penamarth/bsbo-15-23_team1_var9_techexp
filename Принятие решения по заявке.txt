@@ -1,0 +1,40 @@
+@startuml
+title "Последовательность: Принятие решения по заявке (MakeDecision) + State"
+
+actor "Держатель фонда" as FundHolder
+participant "SystemFacade" as Facade
+participant "DecisionService" as DecisionService
+participant "ApplicationService" as AppService
+participant "Application (StateMachine)" as ApplicationState
+participant "База данных" as DB
+
+FundHolder -> Facade: makeDecision(applicationId, status, notes)
+activate Facade
+
+Facade -> DecisionService: saveDecision(...)
+activate DecisionService
+
+' --- Проверка состояния заявки перед принятием решения ---
+DecisionService -> ApplicationState: getCurrentState()
+ApplicationState --> DecisionService: EVALUATED
+
+DecisionService -> AppService: canMakeDecision(applicationId)
+AppService --> DecisionService: true
+
+' --- Сохранение решения ---
+DecisionService -> DB: INSERT Decision
+DB --> DecisionService: confirmation
+
+' --- Переход состояния заявки ---
+DecisionService -> ApplicationState: transitionTo(status)
+note right
+  status = APPROVED → Application переходит в ApprovedState  
+  status = REJECTED → Application переходит в RejectedState
+end note
+
+DecisionService --> Facade: confirmation
+Facade --> FundHolder: уведомление об успешном принятии решения
+
+deactivate DecisionService
+deactivate Facade
+@enduml

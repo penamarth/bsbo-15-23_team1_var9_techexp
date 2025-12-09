@@ -281,6 +281,44 @@ class SystemFacade:
         self.evaluation_service = EvaluationService()
         self.decision_service = DecisionService()
 
+        # Хранилища пользователей
+        self.users = {}
+        self.applicants = {}
+        self.experts = {}
+        self.fund_holders = {}
+        self.next_user_id = 1
+
+    # ===========================================================================
+    # USER CREATION
+    
+
+    def create_applicant(self, name, email):
+        user_id = self.next_user_id
+        self.next_user_id += 1
+        user = User(user_id, name, email, "Applicant")
+        applicant = Applicant(user)
+        self.users[user_id] = user
+        self.applicants[user_id] = applicant
+        return applicant
+
+    def create_expert(self, name, email, specialization):
+        user_id = self.next_user_id
+        self.next_user_id += 1
+        user = User(user_id, name, email, "Expert")
+        expert = Expert(user, specialization)
+        self.users[user_id] = user
+        self.experts[user_id] = expert
+        return expert
+
+    def create_fund_holder(self, name, email, note):
+        user_id = self.next_user_id
+        self.next_user_id += 1
+        user = User(user_id, name, email, "FundHolder")
+        fund_holder = FundHolder(user, note)
+        self.users[user_id] = user
+        self.fund_holders[user_id] = fund_holder
+        return fund_holder
+
     # Applicants
     def submit_application(self, applicant_id, title, description):
         app = self.application_service.create_application(title, description, applicant_id)
@@ -321,60 +359,24 @@ class SystemFacade:
 if __name__ == "__main__":
     facade = SystemFacade()
 
-    users = []
-    print("--- Manual User Creation ---")
-    while True:
-        choice = input("Add a new user? (y/n): ").strip().lower()
-        if choice != 'y':
-            break
-        
-        uid = len(users) + 1
-        name = input("Enter name: ")
-        email = input("Enter email: ")
-        role = input("Enter role (Applicant/Expert/FundHolder): ")
+    # Создаем пользователей через фасад
+    applicant = facade.create_applicant("Alice", "alice@mail.com")
+    expert = facade.create_expert("Bob", "bob@mail.com", "Physics")
+    fund_holder = facade.create_fund_holder("Charlie", "charlie@mail.com", "Manager")
 
-        base_user = User(uid, name, email, role)
-        
-        if role == "Applicant":
-            users.append(Applicant(base_user))
-        elif role == "Expert":
-            spec = input("Enter specialization: ")
-            users.append(Expert(base_user, spec))
-        elif role == "FundHolder":
-            note = input("Enter note: ")
-            users.append(FundHolder(base_user, note))
-        else:
-            print("Invalid role. User not added.")
+    # Подача заявки
+    app1 = facade.submit_application(applicant.user.user_id, "Project X", "Description X")
 
-    # Helper to find user by role
-    def find_user_by_role(role_name):
-        for u in users:
-            if isinstance(u, Applicant) and role_name == "Applicant": return u
-            if isinstance(u, Expert) and role_name == "Expert": return u
-            if isinstance(u, FundHolder) and role_name == "FundHolder": return u
-        return None
+    # Просмотр статуса
+    facade.view_status(applicant.user.user_id)
 
-    applicant = find_user_by_role("Applicant")
-    expert = find_user_by_role("Expert")
-    fund_holder = find_user_by_role("FundHolder")
+    # Назначение эксперта и оценка
+    facade.assign_experts(fund_holder.user.user_id, app1.application_id, [expert.user.user_id])
+    facade.evaluate_application(expert.user.user_id, app1.application_id, 85, "Good work")
 
-    if applicant and expert and fund_holder:
-        print("\n--- Running Simulation ---")
-        # Подача заявки
-        app1 = facade.submit_application(applicant.user.user_id, "Project X", "Description X")
+    # Просмотр статуса после оценки
+    facade.view_status(applicant.user.user_id)
 
-        # Просмотр статуса
-        facade.view_status(applicant.user.user_id)
-
-        # Назначение эксперта и оценка
-        facade.assign_experts(fund_holder.user.user_id, app1.application_id, [expert.user.user_id])
-        facade.evaluate_application(expert.user.user_id, app1.application_id, 85, "Good work")
-
-        # Просмотр статуса после оценки
-        facade.view_status(applicant.user.user_id)
-
-        # Принятие решения
-        facade.make_decision(fund_holder.user.user_id, app1.application_id, "APPROVED", "Excellent")
-        facade.view_status(applicant.user.user_id)
-    else:
-        print("Not enough users of each type to run the full simulation.")
+    # Принятие решения
+    facade.make_decision(fund_holder.user.user_id, app1.application_id, "APPROVED", "Excellent")
+    facade.view_status(applicant.user.user_id)

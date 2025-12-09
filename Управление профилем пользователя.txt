@@ -1,0 +1,23 @@
+@startuml
+title "Последовательность: Управление профилем пользователя"
+
+actor "Пользователь" as User
+participant "SystemFacade" as Facade
+participant "UserService" as UserService
+participant "База данных" as DB
+
+User -> Facade: manageProfile(userId, profileData)
+activate Facade
+
+Facade -> UserService: updateProfile(userId, profileData)
+activate UserService
+
+UserService -> DB: UPDATE Users SET ...
+DB --> UserService: confirmation
+
+UserService --> Facade: success
+Facade --> User: уведомление об успехе
+
+deactivate UserService
+deactivate Facade
+@enduml
